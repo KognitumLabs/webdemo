@@ -1,16 +1,17 @@
 import os
-import time
 import logging
 import flask
-import werkzeug
 import optparse
 import tornado.wsgi
 import tornado.httpserver
-import numpy as np
 import requests
+import urllib
+import cStringIO as StringIO
+from PIL import Image, ImageOps, ImageDraw
 
 # Obtain the flask app object
 app = flask.Flask(__name__)
+
 
 @app.route('/')
 def index():
@@ -21,19 +22,53 @@ def index():
 def compare():
     image1 = flask.request.args.get('image1')
     image2 = flask.request.args.get('image2')
-    endpoint = 'http://{}:{}/detector?image1={}&image2={}&threshold=0.9'.format(os.environ.get('HOST', 'localhost'),
-                                                                                os.environ.get('COMPARISON', '8080'),
-                                                                                image1, image2)
+    detection = bool(flask.request.args.get('detection_type', None))
+    pattern = 'http://{host}:{port}/detector?image1={url1}&image2={url2}&threshold=0.99&detection_type={type}'
+    endpoint = pattern.format(host=os.environ.get('HOST', 'localhost'),
+                              port=os.environ.get('COMPARISON', '8080'),
+                              url1=image1,
+                              url2=image2,
+                              type=detection)
+
     logging.info("Running {}".format(endpoint))
     response = requests.get(endpoint)
     if not response.ok:
         logging.info("Server error")
-        return flask.render_template('index.html', has_result=False, result=(False,))
+        return flask.render_template('index.html',
+                                     has_result=True, result=(False,))
 
     data = response.json()
     logging.info("Response {}".format(data))
-    return flask.render_template('index.html', has_result=True, 
-                                  result=(True, data), image1=image1, image2=image2)
+    img1 = embed_image_html(image1,
+                            data['image1'].get('box'),
+                            bool(data['image1']['is_document'][0]))
+
+    img2 = embed_image_html(image2,
+                            data['image2'].get('box'),
+                            bool(data['image2']['is_document'][0]))
+
+    return flask.render_template('index.html',
+                                 has_result=True,
+                                 result=(True, data.get('is_similar', False)),
+                                 image1=img1,
+                                 image2=img2)
+
+
+def embed_image_html(url, box, has_document):
+    string_buffer = StringIO.StringIO(urllib.urlopen(url).read())
+    """Creates an image embedded in HTML base64 format."""
+    image_pil = Image.open(string_buffer)
+    if box:
+        x1, y1, x2, y2 = box
+        drawer = ImageDraw.Draw(image_pil)
+        drawer.rectangle((x1, y1, x2, y2), fill=None, outline=(255, 255, 255))
+    image_pil = image_pil.resize((256, 256))
+    string_buf = StringIO.StringIO()
+    image_pil = ImageOps.expand(image_pil, border=20,
+                                fill='green' if has_document else 'red')
+    image_pil.save(string_buf, format='png')
+    data = string_buf.getvalue().encode('base64').replace('\n', '')
+    return 'data:image/png;base64,' + data
 
 
 def start_tornado(app, port=5000):
