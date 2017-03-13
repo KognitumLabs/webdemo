@@ -1,0 +1,16 @@
+appdirs==1.4.3
+backports-abc==0.5
+certifi==2017.1.23
+click==6.7
+Flask==0.12
+itsdangerous==0.24
+Jinja2==2.9.5
+MarkupSafe==1.0
+numpy==1.12.0
+packaging==16.8
+pyparsing==2.2.0
+requests==2.13.0
+singledispatch==3.4.0.3
+six==1.10.0
+tornado==4.4.2
+Werkzeug==0.12
