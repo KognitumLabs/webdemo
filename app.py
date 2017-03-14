@@ -6,8 +6,10 @@ import tornado.wsgi
 import tornado.httpserver
 import requests
 import urllib
+import numpy as np
 import cStringIO as StringIO
 from PIL import Image, ImageOps, ImageDraw
+import cv2
 
 # Obtain the flask app object
 app = flask.Flask(__name__)
@@ -54,14 +56,22 @@ def compare():
                                  image2=img2)
 
 
-def embed_image_html(url, box, has_document):
+def embed_image_html(url, box, has_document, alpha=0.4):
     string_buffer = StringIO.StringIO(urllib.urlopen(url).read())
     """Creates an image embedded in HTML base64 format."""
     image_pil = Image.open(string_buffer)
     if box:
         x1, y1, x2, y2 = box
-        drawer = ImageDraw.Draw(image_pil)
-        drawer.rectangle((x1, y1, x2, y2), fill=None, outline=(255, 255, 255))
+        img = np.array(image_pil)
+        color1 = img[y1:y2, x1:x2, :3]
+        color2 = np.array([[0, 0, 255.]]) / 255.
+        ncolor = (1 - alpha) * color1 + alpha * color2
+        img[y1:y2, x1:x2, :3] = ncolor
+        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+        image_pil = Image.fromarray(img)
+
+        # drawer = ImageDraw.Draw(image_pil)
+        # drawer.rectangle((x1, y1, x2, y2), fill=None, outline=(255, 255, 255))
     image_pil = image_pil.resize((256, 256))
     string_buf = StringIO.StringIO()
     image_pil = ImageOps.expand(image_pil, border=20,
