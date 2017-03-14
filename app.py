@@ -24,13 +24,20 @@ def index():
 def compare():
     image1 = flask.request.args.get('image1')
     image2 = flask.request.args.get('image2')
-    detection = bool(flask.request.args.get('detection_type', None))
-    pattern = 'http://{host}:{port}/detector?image1={url1}&image2={url2}&threshold=0.99&detection_type={type}'
-    endpoint = pattern.format(host=os.environ.get('HOST', 'localhost'),
-                              port=os.environ.get('COMPARISON', '8080'),
-                              url1=image1,
-                              url2=image2,
-                              type=detection)
+    detection = flask.request.args.get('detection_type', None) or False
+    if not detection:
+        pattern = 'http://{host}:{port}/detector?image1={url1}&image2={url2}&threshold=0.99'
+        endpoint = pattern.format(host=os.environ.get('HOST', 'localhost'),
+                                  port=os.environ.get('COMPARISON', '8080'),
+                                  url1=image1,
+                                  url2=image2)
+    else:
+        pattern = 'http://{host}:{port}/detector?image1={url1}&image2={url2}&threshold=0.99&detection_type={type}'
+        endpoint = pattern.format(host=os.environ.get('HOST', 'localhost'),
+                                  port=os.environ.get('COMPARISON', '8080'),
+                                  url1=image1,
+                                  url2=image2,
+                                  type=detection)
 
     logging.info("Running {}".format(endpoint))
     response = requests.get(endpoint)
